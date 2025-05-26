@@ -9,7 +9,6 @@ from pydicom.errors import InvalidDicomError
 from PIL import Image, ImageOps
 import warnings
 import io
-# import time # Removed: time is no longer needed for artificial delay
 
 # Suppress warnings
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -277,7 +276,6 @@ def main():
     # actually selects new files (not when the uploader just returns None or [] in a rerun).
     if uploaded_files_from_widget is not None:
         # Check if the content from the widget is different from what's in session_state.
-        # This handles cases where user selects new files or clears the widget.
         # Note: Direct comparison of lists of UploadedFile objects works for identity within a session.
         if uploaded_files_from_widget != st.session_state.uploaded_files:
             # If files were selected, store them and reset predict_clicked
@@ -290,7 +288,8 @@ def main():
             # However, `disabled=True` on the uploader itself should prevent this scenario.
             # The explicit "Clear Images" button handles clearing instead.
             # So, if len is 0 and we had files, it means an external clear happened.
-            elif len(uploaded_uploaded_files_from_widget) == 0 and len(st.session_state.uploaded_files) > 0:
+            # Corrected typo: uploaded_uploaded_files_from_widget -> uploaded_files_from_widget
+            elif len(uploaded_files_from_widget) == 0 and len(st.session_state.uploaded_files) > 0:
                 # This path should ideally be handled by the "Clear Images" button,
                 # but adding it here as a safeguard if the uploader state behaves unexpectedly.
                 st.session_state.uploaded_files = []
