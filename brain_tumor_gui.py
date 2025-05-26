@@ -332,7 +332,7 @@ def main():
             for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
                 current_progress = int((idx + 1) / num_files * 100)
                 progress_bar.progress(current_progress)
-                progress_text.text(f"Processing image {idx + 1}/{num_file`s}: {uploaded_file.name}")
+                progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
                 # `time.sleep` removed from previous update for faster actual processing
 
                 bytes_data = uploaded_file.getvalue()
