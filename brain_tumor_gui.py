@@ -271,10 +271,18 @@ def main():
     )
 
     # If new files are uploaded, update session state and reset prediction flag
-    if new_uploaded_files:
-        st.session_state.uploaded_files = new_uploaded_files
-        st.session_state.predict_clicked = False # Reset prediction state if new files are uploaded
-        st.rerun()
+    # Detect manual removal of uploaded files
+    if new_uploaded_files is not None:
+        if len(new_uploaded_files) == 0 and st.session_state.uploaded_files:
+            # Files were manually cleared by user
+            st.session_state.uploaded_files = []
+            st.session_state.predict_clicked = False
+            st.rerun()
+        elif len(new_uploaded_files) > 0:
+            st.session_state.uploaded_files = new_uploaded_files
+            st.session_state.predict_clicked = False
+            st.rerun()
+
 
     # Display "Predict Tumor" button only if files are uploaded and prediction hasn't started
     if st.session_state.uploaded_files and not st.session_state.predict_clicked:
