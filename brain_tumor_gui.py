@@ -9,6 +9,7 @@ from pydicom.errors import InvalidDicomError
 from PIL import Image, ImageOps
 import warnings
 import io
+import time # Import time for simulating progress
 
 # Suppress warnings
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -270,74 +271,81 @@ def main():
     # If new files are uploaded, update session state
     if new_uploaded_files:
         st.session_state.uploaded_files = new_uploaded_files
-        # Rerun to clear the uploader widget's internal state and disable it immediately
-        st.experimental_rerun()
+        st.rerun() # Replaced st.experimental_rerun()
 
     if st.session_state.uploaded_files:
         st.subheader("Uploaded Images and Predictions")
         
-        # Create columns for image display and results
-        cols = st.columns(3) # Display up to 3 images per row
-
-        for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
-            # Display image in a column
-            with cols[idx % 3]: # Cycle through columns
-                st.markdown(f"**{uploaded_file.name}**")
-                
-                # Convert uploaded file to bytes stream for PIL/pydicom
-                bytes_data = uploaded_file.getvalue()
-                file_buffer = io.BytesIO(bytes_data)
-
-                # Validate image
-                is_valid, valid_msg, img_for_display = is_valid_mri(file_buffer, uploaded_file.name)
-                
-                if img_for_display:
-                    st.image(img_for_display, caption="Uploaded Image", use_column_width=True)
-                else:
-                    st.warning("Could not display image.")
-
-                st.markdown("<div class='result-box'>", unsafe_allow_html=True)
-                if not is_valid:
-                    st.markdown(f"<p class='prediction-text' style='color:#d32f2f;'>❌ Invalid MRI: {valid_msg}</p>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    continue # Skip prediction if validation fails
-
-                # Seek to the beginning of the buffer for the model processing
-                file_buffer.seek(0)
-                
-                # Preprocess for model
-                img_array_for_model = preprocess_image_for_model(file_buffer, uploaded_file.name, model.input_shape)
-
-                # Make prediction
-                prediction = model.predict(img_array_for_model)
-                class_idx = np.argmax(prediction)
-                confidence = np.max(prediction) * 100
-                tumor_type = classes[class_idx]
-
-                # Apply logic based on prediction and confidence
-                if tumor_type == 'No Tumor':
-                    display_message = 'No tumor found (or image not definitive for tumor detection)'
-                    display_style = "color:#FFA500;" # Orange for warning
-                elif confidence < TUMOR_CONFIDENCE_THRESHOLD:
-                    display_message = 'Low confidence prediction. Image might be unclear or atypical.'
-                    display_style = "color:#d32f2f;" # Red for low confidence
-                else:
-                    display_message = f"Prediction: {tumor_type} ({confidence:.2f}%)"
-                    display_style = "color:#388e3c;" # Green for valid tumor prediction
-
-                st.markdown(f"<p class='prediction-text' style='{display_style}'>{display_message}</p>", unsafe_allow_html=True)
-                
-                if tumor_type in class_info and confidence >= TUMOR_CONFIDENCE_THRESHOLD and tumor_type != 'No Tumor':
-                    st.markdown(f"<p class='info-text'>{class_info[tumor_type]}</p>", unsafe_allow_html=True)
-                elif tumor_type == 'No Tumor':
-                    st.markdown(f"<p class='info-text'>{class_info['No Tumor']}</p>", unsafe_allow_html=True)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+        num_files = len(st.session_state.uploaded_files)
         
+        # Use st.status for overall progress
+        with st.status("Processing images...", expanded=True) as status_box:
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+
+            cols = st.columns(3) # Display up to 3 images per row
+
+            for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
+                current_progress = int((idx + 1) / num_files * 100)
+                progress_bar.progress(current_progress)
+                progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
+                time.sleep(0.1) # Simulate some work
+
+                with cols[idx % 3]: # Cycle through columns
+                    st.markdown(f"**{uploaded_file.name}**")
+                    
+                    bytes_data = uploaded_file.getvalue()
+                    file_buffer = io.BytesIO(bytes_data)
+
+                    # Validate image
+                    is_valid, valid_msg, img_for_display = is_valid_mri(file_buffer, uploaded_file.name)
+                    
+                    if img_for_display:
+                        st.image(img_for_display, caption="Uploaded Image", use_column_width=True)
+                    else:
+                        st.warning("Could not display image.")
+
+                    st.markdown("<div class='result-box'>", unsafe_allow_html=True)
+                    if not is_valid:
+                        st.markdown(f"<p class='prediction-text' style='color:#d32f2f;'>❌ Invalid MRI: {valid_msg}</p>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        continue # Skip prediction if validation fails
+
+                    file_buffer.seek(0)
+                    
+                    img_array_for_model = preprocess_image_for_model(file_buffer, uploaded_file.name, model.input_shape)
+
+                    prediction = model.predict(img_array_for_model)
+                    class_idx = np.argmax(prediction)
+                    confidence = np.max(prediction) * 100
+                    tumor_type = classes[class_idx]
+
+                    if tumor_type == 'No Tumor':
+                        display_message = 'No tumor found (or image not definitive for tumor detection)'
+                        display_style = "color:#FFA500;" # Orange for warning
+                    elif confidence < TUMOR_CONFIDENCE_THRESHOLD:
+                        display_message = 'Low confidence prediction. Image might be unclear or atypical.'
+                        display_style = "color:#d32f2f;" # Red for low confidence
+                    else:
+                        display_message = f"Prediction: {tumor_type} ({confidence:.2f}%)"
+                        display_style = "color:#388e3c;" # Green for valid tumor prediction
+
+                    st.markdown(f"<p class='prediction-text' style='{display_style}'>{display_message}</p>", unsafe_allow_html=True)
+                    
+                    if tumor_type in class_info and confidence >= TUMOR_CONFIDENCE_THRESHOLD and tumor_type != 'No Tumor':
+                        st.markdown(f"<p class='info-text'>{class_info[tumor_type]}</p>", unsafe_allow_html=True)
+                    elif tumor_type == 'No Tumor':
+                        st.markdown(f"<p class='info-text'>{class_info['No Tumor']}</p>", unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Update status after loop completes
+            status_box.update(label="Processing complete!", state="complete", expanded=False)
+
         # Add a clear button that appears only after files are uploaded
         if st.sidebar.button("Clear Images", key="clear_button"):
             st.session_state.uploaded_files = [] # Clear the uploaded files in session state
-            st.experimental_rerun() # Rerun the app to clear the display and re-enable upload
+            st.rerun() # Rerun the app to clear the display and re-enable upload
     
     st.markdown("---")
     st.info("Disclaimer: This application is for educational and demonstrative purposes.")
