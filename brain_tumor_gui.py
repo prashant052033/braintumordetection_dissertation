@@ -283,6 +283,13 @@ def main():
             st.session_state.predict_clicked = False
             st.rerun()
 
+        # Always show Clear button if files are in session state
+    if st.session_state.uploaded_files:
+        if st.sidebar.button("Clear Images", key="clear_button"):
+            st.session_state.uploaded_files = []
+            st.session_state.predict_clicked = False
+            st.rerun()
+
 
     # Display "Predict Tumor" button only if files are uploaded and prediction hasn't started
     if st.session_state.uploaded_files and not st.session_state.predict_clicked:
