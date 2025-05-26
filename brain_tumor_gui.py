@@ -315,9 +315,9 @@ def main():
                 st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.info("Disclaimer: This application is for educational and demonstrative purposes only and should not be used for medical diagnosis.")
+    st.info("Disclaimer: This application is for educational and demonstrative purposes.")
     st.sidebar.markdown("---")
-    st.sidebar.markdown("Built with Streamlit by [Your Name/Org]") # Replace with your info
+    st.sidebar.markdown("Built with Streamlit by Prashant Adhikari") # Replace with your info
 
 if __name__ == '__main__':
     main()
