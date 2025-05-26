@@ -258,17 +258,20 @@ def main():
         st.session_state.uploaded_files = []
     if 'predict_clicked' not in st.session_state:
         st.session_state.predict_clicked = False
+    # NEW: Initialize a counter for the file uploader key
+    if 'uploader_key_counter' not in st.session_state:
+        st.session_state.uploader_key_counter = 0
 
     # Control upload button state
     upload_disabled = bool(st.session_state.uploaded_files)
 
-    # Use a key for the uploader for better state management if needed, though often optional
+    # Use the dynamic key for the file uploader to force a visual reset
     uploaded_files_from_widget = st.sidebar.file_uploader(
         "Choose MRI Image(s)",
         type=["png", "jpg", "jpeg", "dcm"],
         accept_multiple_files=True,
         disabled=upload_disabled,
-        key="mri_image_uploader" # Added a key for robustness
+        key=f"mri_image_uploader_{st.session_state.uploader_key_counter}" # Dynamic key
     )
 
     # This logic block handles updating st.session_state.uploaded_files
@@ -287,8 +290,6 @@ def main():
             # this would result in an empty list from the widget when session state was not empty.
             # However, `disabled=True` on the uploader itself should prevent this scenario.
             # The explicit "Clear Images" button handles clearing instead.
-            # So, if len is 0 and we had files, it means an external clear happened.
-            # Corrected typo: uploaded_uploaded_files_from_widget -> uploaded_files_from_widget
             elif len(uploaded_files_from_widget) == 0 and len(st.session_state.uploaded_files) > 0:
                 # This path should ideally be handled by the "Clear Images" button,
                 # but adding it here as a safeguard if the uploader state behaves unexpectedly.
@@ -310,6 +311,8 @@ def main():
         if st.sidebar.button("Clear Images", key="clear_button_sidebar"): # Unique key for clear button
             st.session_state.uploaded_files = []
             st.session_state.predict_clicked = False # Reset prediction state
+            # NEW: Increment the uploader key counter to force file_uploader to visually clear
+            st.session_state.uploader_key_counter += 1
             st.rerun() # Rerun the app to clear the display and re-enable upload
     
     # This block runs only if files are uploaded AND the predict button has been clicked
@@ -332,7 +335,6 @@ def main():
                 current_progress = int((idx + 1) / num_files * 100)
                 progress_bar.progress(current_progress)
                 progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
-                # `time.sleep` removed from previous update for faster actual processing
 
                 bytes_data = uploaded_file.getvalue()
                 file_buffer = io.BytesIO(bytes_data)
