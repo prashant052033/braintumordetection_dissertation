@@ -9,7 +9,7 @@ from pydicom.errors import InvalidDicomError
 from PIL import Image, ImageOps
 import warnings
 import io
-import time # Import time for simulating progress
+# import time # Removed: time is no longer needed for artificial delay
 
 # Suppress warnings
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -294,17 +294,21 @@ def main():
         
         num_files = len(st.session_state.uploaded_files)
         
-        # Place progress bar below the button, and use a collapsed st.status for overall state
-        with st.status("Processing images and predicting...", expanded=False) as status_box:
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
+        # Place progress bar below the "Predict Tumor" button (effectively in main area)
+        progress_container = st.container() # Create a container for progress elements
+        progress_bar = progress_container.progress(0)
+        progress_text = progress_container.empty()
 
+        # Use st.status for overall processing message, collapsed
+        with st.status("Processing images and predicting...", expanded=False) as status_box:
             # Iterate through images and display predictions immediately
+            cols = st.columns(3) # Use columns for individual image display outside the status box
+            
             for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
                 current_progress = int((idx + 1) / num_files * 100)
                 progress_bar.progress(current_progress)
                 progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
-                time.sleep(0.05) # Simulate some work for progress visibility
+                # Removed: time.sleep(0.05) # Removed artificial delay
 
                 bytes_data = uploaded_file.getvalue()
                 file_buffer = io.BytesIO(bytes_data)
@@ -313,7 +317,6 @@ def main():
                 is_valid, valid_msg, img_for_display = is_valid_mri(file_buffer, uploaded_file.name)
                 
                 # Display image and prediction results directly (outside st.status)
-                cols = st.columns(3) # Use columns for individual image display outside the status box
                 with cols[idx % 3]: # Cycle through columns
                     st.markdown(f"**{uploaded_file.name}**")
                     
