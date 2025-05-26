@@ -1,5 +1,5 @@
 streamlit==1.33.0
-tensorflow==2.16.1
+tensorflow==2.10.0
 numpy==1.26.4
 opencv-python-headless==4.9.0.80
 pydicom==2.4.4
