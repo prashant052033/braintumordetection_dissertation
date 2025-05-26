@@ -25,7 +25,7 @@ MAX_MEAN_INTENSITY = 230
 VALID_MODALITIES = ['MR', 'NM']
 TUMOR_CONFIDENCE_THRESHOLD = 80.0
 
-@st.cache_resource(allow_output_mutation=True) # Cache the model loading for performance
+@st.cache_resource # Cache the model loading for performance
 def load_ml_model():
     """Loads the pre-trained Keras model."""
     try:
