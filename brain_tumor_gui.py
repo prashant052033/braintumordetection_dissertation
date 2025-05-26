@@ -201,6 +201,11 @@ def main():
         .stButton button:hover {
             background-color: #2980b9;
         }
+        /* Style for disabled button */
+        .stButton button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
         .reportview-container {
             background: #f0f4f7;
         }
@@ -247,19 +252,34 @@ def main():
     )
 
     st.sidebar.header("Upload Image(s)")
-    uploaded_files = st.sidebar.file_uploader(
+
+    # Initialize session state for uploaded files
+    if 'uploaded_files' not in st.session_state:
+        st.session_state.uploaded_files = []
+
+    # Control upload button state
+    upload_disabled = bool(st.session_state.uploaded_files)
+
+    new_uploaded_files = st.sidebar.file_uploader(
         "Choose MRI Image(s)",
         type=["png", "jpg", "jpeg", "dcm"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        disabled=upload_disabled # Disable if files are already uploaded
     )
 
-    if uploaded_files:
+    # If new files are uploaded, update session state
+    if new_uploaded_files:
+        st.session_state.uploaded_files = new_uploaded_files
+        # Rerun to clear the uploader widget's internal state and disable it immediately
+        st.experimental_rerun()
+
+    if st.session_state.uploaded_files:
         st.subheader("Uploaded Images and Predictions")
         
         # Create columns for image display and results
         cols = st.columns(3) # Display up to 3 images per row
 
-        for idx, uploaded_file in enumerate(uploaded_files):
+        for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
             # Display image in a column
             with cols[idx % 3]: # Cycle through columns
                 st.markdown(f"**{uploaded_file.name}**")
@@ -313,7 +333,12 @@ def main():
                     st.markdown(f"<p class='info-text'>{class_info['No Tumor']}</p>", unsafe_allow_html=True)
                 
                 st.markdown("</div>", unsafe_allow_html=True)
-
+        
+        # Add a clear button that appears only after files are uploaded
+        if st.sidebar.button("Clear Images", key="clear_button"):
+            st.session_state.uploaded_files = [] # Clear the uploaded files in session state
+            st.experimental_rerun() # Rerun the app to clear the display and re-enable upload
+    
     st.markdown("---")
     st.info("Disclaimer: This application is for educational and demonstrative purposes.")
     st.sidebar.markdown("---")
