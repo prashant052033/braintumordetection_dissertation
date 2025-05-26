@@ -263,47 +263,57 @@ def main():
     # Control upload button state
     upload_disabled = bool(st.session_state.uploaded_files)
 
-    new_uploaded_files = st.sidebar.file_uploader(
+    # Use a key for the uploader for better state management if needed, though often optional
+    uploaded_files_from_widget = st.sidebar.file_uploader(
         "Choose MRI Image(s)",
         type=["png", "jpg", "jpeg", "dcm"],
         accept_multiple_files=True,
-        disabled=upload_disabled # Disable if files are already uploaded
+        disabled=upload_disabled,
+        key="mri_image_uploader" # Added a key for robustness
     )
 
-    # If new files are uploaded, update session state and reset prediction flag
-    # Detect manual removal of uploaded files
-    if new_uploaded_files is not None:
-        if len(new_uploaded_files) == 0 and st.session_state.uploaded_files:
-            # Files were manually cleared by user
-            st.session_state.uploaded_files = []
-            st.session_state.predict_clicked = False
-            st.rerun()
-        elif len(new_uploaded_files) > 0:
-            st.session_state.uploaded_files = new_uploaded_files
-            st.session_state.predict_clicked = False
-            st.rerun()
+    # This logic block handles updating st.session_state.uploaded_files
+    # It ensures that uploaded_files in session state only changes when a user
+    # actually selects new files (not when the uploader just returns None or [] in a rerun).
+    if uploaded_files_from_widget is not None:
+        # Check if the content from the widget is different from what's in session_state.
+        # This handles cases where user selects new files or clears the widget.
+        # Note: Direct comparison of lists of UploadedFile objects works for identity within a session.
+        if uploaded_files_from_widget != st.session_state.uploaded_files:
+            # If files were selected, store them and reset predict_clicked
+            if len(uploaded_files_from_widget) > 0:
+                st.session_state.uploaded_files = uploaded_files_from_widget
+                st.session_state.predict_clicked = False # Reset prediction state
+                st.rerun() # Rerun to update the UI (e.g., enable Predict button)
+            # If the user cleared the uploader (e.g., via 'x' if it became re-enabled),
+            # this would result in an empty list from the widget when session state was not empty.
+            # However, `disabled=True` on the uploader itself should prevent this scenario.
+            # The explicit "Clear Images" button handles clearing instead.
+            # So, if len is 0 and we had files, it means an external clear happened.
+            elif len(uploaded_uploaded_files_from_widget) == 0 and len(st.session_state.uploaded_files) > 0:
+                # This path should ideally be handled by the "Clear Images" button,
+                # but adding it here as a safeguard if the uploader state behaves unexpectedly.
+                st.session_state.uploaded_files = []
+                st.session_state.predict_clicked = False
+                st.rerun()
 
-        # Always show Clear button if files are in session state
-    if st.session_state.uploaded_files:
-        if st.sidebar.button("Clear Images", key="clear_button"):
-            st.session_state.uploaded_files = []
-            st.session_state.predict_clicked = False
-            st.rerun()
 
-
-    # Display "Predict Tumor" button only if files are uploaded and prediction hasn't started
-    if st.session_state.uploaded_files and not st.session_state.predict_clicked:
-        if st.sidebar.button("Predict Tumor", key="predict_button"):
+    # Display "Predict Tumor" button only if files are uploaded AND prediction hasn't started
+    # This condition relies on `st.session_state.uploaded_files` being correctly populated.
+    if len(st.session_state.uploaded_files) > 0 and not st.session_state.predict_clicked:
+        if st.sidebar.button("Predict Tumor", key="predict_button_sidebar"): # Unique key for predict button
             st.session_state.predict_clicked = True
             st.rerun()
 
     # Clear button functionality
+    # This button is visible if there are any uploaded files OR if prediction has already been clicked.
     if st.session_state.uploaded_files or st.session_state.predict_clicked:
-        if st.sidebar.button("Clear Images", key="clear_button"):
+        if st.sidebar.button("Clear Images", key="clear_button_sidebar"): # Unique key for clear button
             st.session_state.uploaded_files = []
             st.session_state.predict_clicked = False # Reset prediction state
-            st.rerun()
-
+            st.rerun() # Rerun the app to clear the display and re-enable upload
+    
+    # This block runs only if files are uploaded AND the predict button has been clicked
     if st.session_state.uploaded_files and st.session_state.predict_clicked:
         st.subheader("Uploaded Images and Predictions")
         
@@ -322,8 +332,8 @@ def main():
             for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
                 current_progress = int((idx + 1) / num_files * 100)
                 progress_bar.progress(current_progress)
-                progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
-                # Removed: time.sleep(0.05) # Removed artificial delay
+                progress_text.text(f"Processing image {idx + 1}/{num_file`s}: {uploaded_file.name}")
+                # `time.sleep` removed from previous update for faster actual processing
 
                 bytes_data = uploaded_file.getvalue()
                 file_buffer = io.BytesIO(bytes_data)
@@ -346,7 +356,7 @@ def main():
                         st.markdown("</div>", unsafe_allow_html=True)
                         continue # Skip prediction if validation fails
 
-                    file_buffer.seek(0)
+                    file_buffer.seek(0) # Reset buffer for preprocessing
                     
                     img_array_for_model = preprocess_image_for_model(file_buffer, uploaded_file.name, model.input_shape)
 
