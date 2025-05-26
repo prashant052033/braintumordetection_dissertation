@@ -13,7 +13,7 @@ import time # Import time for simulating progress
 
 # Suppress warnings
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2']
 warnings.filterwarnings("ignore")
 
 # --- Configuration and Thresholds (Tune these!) ---
@@ -254,9 +254,11 @@ def main():
 
     st.sidebar.header("Upload Image(s)")
 
-    # Initialize session state for uploaded files
+    # Initialize session state variables
     if 'uploaded_files' not in st.session_state:
         st.session_state.uploaded_files = []
+    if 'predict_clicked' not in st.session_state:
+        st.session_state.predict_clicked = False
 
     # Control upload button state
     upload_disabled = bool(st.session_state.uploaded_files)
@@ -268,37 +270,52 @@ def main():
         disabled=upload_disabled # Disable if files are already uploaded
     )
 
-    # If new files are uploaded, update session state
+    # If new files are uploaded, update session state and reset prediction flag
     if new_uploaded_files:
         st.session_state.uploaded_files = new_uploaded_files
-        st.rerun() # Replaced st.experimental_rerun()
+        st.session_state.predict_clicked = False # Reset prediction state if new files are uploaded
+        st.rerun()
 
-    if st.session_state.uploaded_files:
+    # Display "Predict Tumor" button only if files are uploaded and prediction hasn't started
+    if st.session_state.uploaded_files and not st.session_state.predict_clicked:
+        if st.sidebar.button("Predict Tumor", key="predict_button"):
+            st.session_state.predict_clicked = True
+            st.rerun()
+
+    # Clear button functionality
+    if st.session_state.uploaded_files or st.session_state.predict_clicked:
+        if st.sidebar.button("Clear Images", key="clear_button"):
+            st.session_state.uploaded_files = []
+            st.session_state.predict_clicked = False # Reset prediction state
+            st.rerun()
+
+    if st.session_state.uploaded_files and st.session_state.predict_clicked:
         st.subheader("Uploaded Images and Predictions")
         
         num_files = len(st.session_state.uploaded_files)
         
-        # Use st.status for overall progress
-        with st.status("Processing images...", expanded=True) as status_box:
+        # Place progress bar below the button, and use a collapsed st.status for overall state
+        with st.status("Processing images and predicting...", expanded=False) as status_box:
             progress_bar = st.progress(0)
             progress_text = st.empty()
 
-            cols = st.columns(3) # Display up to 3 images per row
-
+            # Iterate through images and display predictions immediately
             for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
                 current_progress = int((idx + 1) / num_files * 100)
                 progress_bar.progress(current_progress)
                 progress_text.text(f"Processing image {idx + 1}/{num_files}: {uploaded_file.name}")
-                time.sleep(0.1) # Simulate some work
+                time.sleep(0.05) # Simulate some work for progress visibility
 
+                bytes_data = uploaded_file.getvalue()
+                file_buffer = io.BytesIO(bytes_data)
+
+                # Validate image
+                is_valid, valid_msg, img_for_display = is_valid_mri(file_buffer, uploaded_file.name)
+                
+                # Display image and prediction results directly (outside st.status)
+                cols = st.columns(3) # Use columns for individual image display outside the status box
                 with cols[idx % 3]: # Cycle through columns
                     st.markdown(f"**{uploaded_file.name}**")
-                    
-                    bytes_data = uploaded_file.getvalue()
-                    file_buffer = io.BytesIO(bytes_data)
-
-                    # Validate image
-                    is_valid, valid_msg, img_for_display = is_valid_mri(file_buffer, uploaded_file.name)
                     
                     if img_for_display:
                         st.image(img_for_display, caption="Uploaded Image", use_column_width=True)
@@ -340,13 +357,8 @@ def main():
                     st.markdown("</div>", unsafe_allow_html=True)
             
             # Update status after loop completes
-            status_box.update(label="Processing complete!", state="complete", expanded=False)
+            status_box.update(label="Prediction complete!", state="complete", expanded=False)
 
-        # Add a clear button that appears only after files are uploaded
-        if st.sidebar.button("Clear Images", key="clear_button"):
-            st.session_state.uploaded_files = [] # Clear the uploaded files in session state
-            st.rerun() # Rerun the app to clear the display and re-enable upload
-    
     st.markdown("---")
     st.info("Disclaimer: This application is for educational and demonstrative purposes.")
     st.sidebar.markdown("---")
